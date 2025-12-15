@@ -247,6 +247,9 @@ let rec occurs_check (x:var) (t: typeScheme) : bool =
     c1 || c2
   | TList t1 -> occurs_check x t1
 
+let rec update_subs (x:var) (z: typeScheme) (s: substitutions) : substitutions =
+  List.map (fun (id, s1) -> (id, substitute z x s1)) s
+
 let rec unify (constraints: (typeScheme * typeScheme) list) : substitutions =
   match constraints with
   | [] -> []
@@ -255,7 +258,12 @@ let rec unify (constraints: (typeScheme * typeScheme) list) : substitutions =
     let t2 = unify xs in
     (* resolve the LHS and RHS of the constraints from the previous substitutions *)
     let t1 = unify_one (apply t2 x) (apply t2 y) in
-    t1 @ t2
+    (* if t1 is (x,z), update t2 so all occurences of x on RHS are replaced with z *)
+    match t1 with
+    | (x, z)::[] ->
+      let t2 = update_subs x z t2 in
+      t1 @ t2
+    | _ -> t1 @ t2
 
 (******************************************************************|
 |*************************   Unify One  ***************************|
