@@ -236,6 +236,17 @@ let apply (subs: substitutions) (t: typeScheme) : typeScheme =
 | - In the end we get a complete list of substitutions that helps  |
 |   resolve types of all expressions in our program.               |
 |******************************************************************)
+
+let rec occurs_check (x:var) (t: typeScheme) : bool =
+  match t with
+  | TNum | TBool | TStr -> false
+  | T(y) -> if x = y then true else false
+  | TFun (t1, t2) ->
+    let c1 = occurs_check x t1 in
+    let c2 = occurs_check x t2 in
+    c1 || c2
+  | TList t1 -> occurs_check x t1
+
 let rec unify (constraints: (typeScheme * typeScheme) list) : substitutions =
   match constraints with
   | [] -> []
@@ -270,7 +281,11 @@ let rec unify (constraints: (typeScheme * typeScheme) list) : substitutions =
 and unify_one (t1: typeScheme) (t2: typeScheme) : substitutions =
   match t1, t2 with
   | TNum, TNum | TBool, TBool | TStr, TStr -> []
-  | T(x), z | z, T(x) -> [(x, z)]
+  (* sub z for x in q *)
+  (* make sure x does not appear in z *)
+  | T(x), z | z, T(x) -> 
+    if (T(x) <> z) && (occurs_check x z) then raise OccursCheckException
+    else [(x, z)]
   | TFun(a, b), TFun(x, y) -> unify [(a, x); (b, y)]
   | TList t1, TList t2 -> unify [(t1, t2)]
   | _ -> raise (failwith "mismatched types")
